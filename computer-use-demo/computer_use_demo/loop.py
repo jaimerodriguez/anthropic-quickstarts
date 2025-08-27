@@ -45,20 +45,26 @@ class APIProvider(StrEnum):
     VERTEX = "vertex"
 
 
+PROVIDER_TO_DEFAULT_MODEL_NAME: dict[APIProvider, str] = {
+    APIProvider.ANTHROPIC: "claude-3-5-sonnet-20241022",
+    APIProvider.BEDROCK: "anthropic.claude-3-5-sonnet-20241022-v2:0",
+    APIProvider.VERTEX: "claude-3-5-sonnet-v2@20241022",
+}
+
+
 # This system prompt is optimized for the Docker environment in this repository and
 # specific tool combinations enabled.
 # We encourage modifying this system prompt to ensure the model has context for the
 # environment it is running in, and to provide any additional information that may be
 # helpful for the task at hand.
 SYSTEM_PROMPT = f"""<SYSTEM_CAPABILITY>
-* You are utilising an Ubuntu virtual machine using {platform.machine()} architecture with internet access.
-* You can feel free to install Ubuntu applications with your bash tool. Use curl instead of wget.
-* To open firefox, please just click on the firefox icon.  Note, firefox-esr is what is installed on your system.
-* Using bash tool you can start GUI applications, but you need to set export DISPLAY=:1 and use a subshell. For example "(DISPLAY=:1 xterm &)". GUI apps run with bash tool will appear within your desktop environment, but they may take some time to appear. Take a screenshot to confirm it did.
-* When using your bash tool with commands that are expected to output very large quantities of text, redirect into a tmp file and use str_replace_based_edit_tool or `grep -n -B <lines before> -A <lines after> <query> <filename>` to confirm output.
-* When viewing a page it can be helpful to zoom out so that you can see everything on the page.  Either that, or make sure you scroll down to see everything before deciding something isn't available.
-* When using your computer function calls, they take a while to run and send back to you.  Where possible/feasible, try to chain multiple of these calls all into one function calls request.
-* The current date is {datetime.today().strftime('%A, %B %-d, %Y')}.
+* You are utilizing a {'Windows' if platform.system() == 'Windows' else 'Ubuntu'} system using {platform.machine()} architecture with internet access.
+* When using the bash tool on Windows, you are interacting with the Windows Command Prompt (cmd.exe). Use Windows-style commands and paths.
+* To open applications, click on their icons in the taskbar or desktop.
+* When using your bash tool with commands that are expected to output very large quantities of text, redirect into a temporary file and use str_replace_editor to view the contents.
+* When viewing a page it can be helpful to zoom out so that you can see everything on the page. Either that, or make sure you scroll down to see everything before deciding something isn't available.
+* When using your computer function calls, they take a while to run and send back to you. Where possible/feasible, try to chain multiple of these calls all into one function calls request.
+* The current date is {datetime.today().strftime('%A, %B %#d, %Y') if platform.system() == 'Windows' else datetime.today().strftime('%A, %B %-d, %Y')}.
 </SYSTEM_CAPABILITY>
 
 <IMPORTANT>
@@ -90,6 +96,13 @@ async def sampling_loop(
     """
     tool_group = TOOL_GROUPS_BY_VERSION[tool_version]
     tool_collection = ToolCollection(*(ToolCls() for ToolCls in tool_group.tools))
+"""JAIME  TODO 
+ tool_collection = ToolCollection(
+        ComputerTool(),
+        BashTool(),
+        EditTool(),
+    )
+""" 
     system = BetaTextBlockParam(
         type="text",
         text=f"{SYSTEM_PROMPT}{' ' + system_prompt_suffix if system_prompt_suffix else ''}",
